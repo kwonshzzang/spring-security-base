@@ -1,10 +1,14 @@
 package kr.co.kwonshzzang.config;
 
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -16,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity(debug = true)
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
+
     @Bean
     public UserDetailsService userDetailsService() {
         return new InMemoryUserDetailsManager(
@@ -38,13 +43,38 @@ public class SecurityConfig {
     }
 
     @Bean
+    public RoleHierarchy roleHierarchy() {
+        RoleHierarchyImpl roleHierarchy = new RoleHierarchyImpl();
+        roleHierarchy.setHierarchy("ROLE_ADMIN > ROLE_USER");
+        return roleHierarchy;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(
-                        request -> request.requestMatchers("/**").permitAll()
+                        request -> request.requestMatchers("/").permitAll()
                                 .anyRequest().authenticated()
-                );
+                )
+                .formLogin(
+                        login -> login.loginPage("/login")
+                                .permitAll()
+                                .defaultSuccessUrl("/", false)
+                                .failureUrl("/login-error")
+                )
+                .logout(logout -> logout.logoutSuccessUrl("/"))
+                .exceptionHandling(exception -> exception.accessDeniedPage("/access-denied"))
+                ;
 
         return http.build();
+    }
+
+    /**
+     * Web Resource(css, js, image) Spring Security 무시
+     */
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring()
+                .requestMatchers(PathRequest.toStaticResources().atCommonLocations());
     }
 }
